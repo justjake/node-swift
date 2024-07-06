@@ -9,7 +9,12 @@
   "author": "Kabir Oberai",
   "license": "CC0-1.0",
   "dependencies": {
-    "node-swift": "file:.."
+    "@types/node": "^20.14.9",
+    "node-swift": "file:..",
+    "typescript": "5.5.3"
   },
-  "private": true
+  "private": true,
+  "devDependencies": {
+    "tsx": "4.16.2"
+  }
 }
