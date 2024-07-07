@@ -58,4 +58,17 @@ final class File: NodeClass {
     }
 }
 
-#NodeModule(exports: ["File": File.deferredConstructor])
+final class SomeIterable: NodeClass, NodeIterable, Sequence<String> {
+    static let properties: NodeClassPropertyList = [
+        NodeSymbol.iterator: NodeMethod(nodeIterator),
+    ]
+
+    private let values = ["a", "b", "c"]
+
+    func makeIterator() -> IndexingIterator<[String]> {
+        values.makeIterator()
+    }
+
+}
+
+#NodeModule(exports: ["File": File.deferredConstructor, "SomeIterable": SomeIterable.deferredConstructor])

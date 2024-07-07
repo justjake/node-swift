@@ -15,6 +15,12 @@ extension SCDisplay: NodeValueConvertible {
   init(_ inner: SCDisplay) {
     self.inner = inner
   }
+
+  @NodeName("potato")
+  @NodeProperty
+  var potatoInternal: String {
+    "hi"
+  }
   
   @NodeProperty var displayID: String {
     inner.displayID.formatted()

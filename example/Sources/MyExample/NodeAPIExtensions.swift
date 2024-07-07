@@ -16,8 +16,10 @@ extension NodeObject {
     }
     return value
   }
-  
-  public static func X(_ properties: NodeObjectPropertyList = [:]) throws -> NodeObject {
-    try NodeObject(properties)
+}
+
+extension NodeSymbol {
+  static func nodeInspectCustom() throws -> NodeSymbol {
+    try NodeSymbol.global(for: "nodejs.util.inspect.custom")
   }
 }

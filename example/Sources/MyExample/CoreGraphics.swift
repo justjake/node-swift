@@ -1,6 +1,18 @@
 import Foundation
 import NodeAPI
 
+extension CGFloat: NodeValueConvertible, NodeValueCreatable {
+  public typealias ValueType = NodeNumber
+  
+  public func nodeValue() throws -> any NodeAPI.NodeValue {
+    try NodeNumber(Double(self))
+  }
+  
+  public static func from(_ value: NodeAPI.NodeNumber) throws -> CGFloat {
+    CGFloat(try value.double())
+  }
+}
+
 extension CGPoint: NodeValueConvertible, NodeValueCreatable {
   public typealias ValueType = NodeObject
   
