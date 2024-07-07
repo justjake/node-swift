@@ -201,6 +201,17 @@ struct ContentFilterArgs: NodeValueCreatable {
       width: contentRect.size.width * pointPixelScale,
       height: contentRect.size.height * pointPixelScale)
   }
+  
+  @available(macOS 14.0, *)
+  @NodeActor
+  @NodeMethod
+  func createStreamConfiguration() -> StreamConfiguration {
+    let config = StreamConfiguration.highQuality()
+    config.captureResolution = .best
+    config.size = scaledContentSize
+    config.scalesToFit = false
+    return config
+  }
 
   @NodeName(NodeSymbol.utilInspectCustom)
   @NodeMethod
@@ -262,8 +273,17 @@ extension SCShareableContent: NodeValueConvertible {
 }
 
 extension SCCaptureResolutionType: NodeValueConvertible, CustomDebugStringConvertible, NodeInspect {
+  public var caseName: String {
+    switch self {
+    case .automatic: "automatic"
+    case .best: "best"
+    case .nominal: "nonimal"
+    @unknown default: "unknown"
+    }
+  }
+  
   func nodeInspect(_ inspector: Inspector) throws -> String {
-    "\(inspector.stylize(inferType: rawValue)) (\()"
+    "\(try inspector.stylize(inferType: rawValue)) (\(type(of: self)).\(caseName))"
   }
   
   public var debugDescription: String {
@@ -292,7 +312,7 @@ extension UInt32: NodeValueConvertible, NodeValueCreatable {
   typealias Wrapped = SCStreamConfiguration
   let inner: SCStreamConfiguration
 
-  @NodeActor static func highQuality() -> StreamConfiguration {
+  static func highQuality() -> StreamConfiguration {
     let config = SCStreamConfiguration()
     config.scalesToFit = false
     config.captureResolution = .best
@@ -331,7 +351,7 @@ extension UInt32: NodeValueConvertible, NodeValueCreatable {
   func nodeInspect(_ inspector: Inspector) throws -> String {
     try inspector.nodeClass(
       value: self, paths: ("size", \.size),
-      ("captureResolution", { "\($0.captureResolution)" }),
+      ("captureResolution", \.captureResolution),
       ("scalesToFit", \.scalesToFit),
       ("sourceRect", \.sourceRect),
       ("destinationRect", \.destinationRect)

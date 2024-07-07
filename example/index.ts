@@ -41,9 +41,7 @@ async function main() {
   config.size = filter.scaledContentSize;
   console.log(config);
 
-  const image = await time("captureImage", () =>
-    SC.captureImage(filter, config)
-  );
+  const image = await time("captureImage", () => SC.captureImage(filter));
   console.log(image);
 
   const imageData = await time("getImageData", () => image.getImageData());

@@ -76,6 +76,7 @@ interface SCContentFilter {
   pointPixelScale: number;
   scaledContentSize: CGSize;
   includeMenuBar: boolean;
+  createStreamConfiguration(): SCStreamConfiguration;
 }
 
 export const SCContentFilter = {
@@ -158,7 +159,7 @@ export interface ScreenShotImage {
 /** https://developer.apple.com/documentation/screencapturekit/scscreenshotmanager/4251334-captureimage */
 export async function captureImage(
   contentFilter: SCContentFilter,
-  config: SCStreamConfiguration
+  config?: SCStreamConfiguration
 ): Promise<ScreenShotImage> {
   return RAW_captureImage(contentFilter, config);
 }

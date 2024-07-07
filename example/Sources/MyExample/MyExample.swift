@@ -23,8 +23,9 @@ import ScreenCaptureKit
   "createContentFilter": try NodeFunction { (args: ContentFilterArgs) throws in
     return try args.contentFilter()
   },
-  "captureImage": try NodeFunction { (filter: ContentFilter, config: StreamConfiguration) async throws in
-    let image = try await SCScreenshotManager.captureImage(contentFilter: filter.inner, configuration: config.inner)
+  "captureImage": try NodeFunction { (filter: ContentFilter, config: StreamConfiguration?) async throws in
+    let finalConfig = config ?? filter.createStreamConfiguration()
+    let image = try await SCScreenshotManager.captureImage(contentFilter: filter.inner, configuration: finalConfig.inner)
     return NodeImage(image)
   }
 ])
