@@ -7,21 +7,12 @@ struct NodeNameMacro: PeerMacro {
         providingPeersOf declaration: some DeclSyntaxProtocol,
         in context: some MacroExpansionContext
     ) throws -> [DeclSyntax] {
-        guard let identifier = declaration.as(VariableDeclSyntax.self)?.identifier else {
-            context.diagnose(.init(node: Syntax(declaration), message: .expectedProperty))
-            return []
-        }
-
-        guard let attributes = node.nodeAttributes else {
+        guard let _ = node.nodeAttributes else {
             context.diagnose(.init(node: Syntax(node), message: .expectedName))
             return []
         }
 
+        // Processed by NodeClassMacro.
         return []
-
-        // return ["""
-        // @NodeActor static let $\(identifier) = \
-        //     NodeProperty(attributes: \(attributes), \\_NodeSelf.\(identifier))
-        // """]
     }
 }
