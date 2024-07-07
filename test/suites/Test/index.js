@@ -25,5 +25,11 @@ assert.strictEqual(file.reply(null), "You said nothing");
 assert.strictEqual(file.reply(undefined), "You said nothing");
 
 const iterable = new SomeIterable()
-const array = Array.from(iterable)
-assert.deepStrictEqual(array, ["one", "two", "three"])
+const expected = ["one", "two", "three"]
+assert.deepStrictEqual(Array.from(iterable), expected)
+assert.deepStrictEqual([...iterable], expected)
+let index = 0
+for (const item of iterable) {
+    assert.strictEqual(item, expected[index])
+    index++
+}

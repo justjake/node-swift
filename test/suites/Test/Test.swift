@@ -58,15 +58,20 @@ final class File: NodeClass {
     }
 }
 
-final class SomeIterable: NodeClass, NodeIterable, Sequence<String> {
+final class SomeIterable: NodeClass {
+    typealias Element = String
+  
     static let properties: NodeClassPropertyList = [
         NodeSymbol.iterator: NodeMethod(nodeIterator),
     ]
 
-    private let values = ["a", "b", "c"]
+    static let construct = NodeConstructor(SomeIterable.init(_:))
+    init(_ args: NodeArguments) throws { }
 
-    func makeIterator() -> IndexingIterator<[String]> {
-        values.makeIterator()
+    private let values: [String] = ["one", "two", "three"]
+  
+    func nodeIterator() throws -> NodeIterator {
+        values.nodeIterator()
     }
 
 }
