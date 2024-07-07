@@ -72,16 +72,19 @@ interface SCContentFilterDisplayExcludingApps
 }
 
 interface SCContentFilter {
-  contentRect: CGRect;
-  pointPixelScale: number;
-  scaledContentSize: CGSize;
-  includeMenuBar: boolean;
+  readonly contentRect: CGRect;
+  readonly pointPixelScale: number;
+  readonly scaledContentSize: CGSize;
+  readonly includeMenuBar?: boolean;
   createStreamConfiguration(): SCStreamConfiguration;
 }
 
 export const SCContentFilter = {
-  forWindow(window: SCWindow): SCContentFilter {
-    return RAW_createContentFilter({ window });
+  forWindow(args: {
+    window: SCWindow;
+    includeWindowShadow?: boolean;
+  }): SCContentFilter {
+    return RAW_createContentFilter(args);
   },
 
   forDisplay(

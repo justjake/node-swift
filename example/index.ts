@@ -30,18 +30,34 @@ async function main() {
   );
   console.log(biggestWindow);
 
-  const filter = await time("createFilter", () =>
-    SC.SCContentFilter.forWindow(biggestWindow)
+  const filter = await time(
+    "createFilter",
+    () =>
+      SC.SCContentFilter.forWindow({
+        window: biggestWindow,
+        includeWindowShadow: true,
+      })
+    // SC.SCContentFilter.forDisplay({
+    //   display: sharable.displays[0],
+    //   excludingWindows: [
+    //     biggestWindow,
+    //     ...sharable.windows.filter((_, idx) => idx % 2 === 0),
+    //   ],
+    // })
   );
   console.log(filter);
 
-  const config = await time("createConfig", () =>
-    SC.SCStreamConfiguration.create()
-  );
-  config.size = filter.scaledContentSize;
+  const config = await time("createConfig", () => {
+    const config = filter.createStreamConfiguration();
+    // config.ignoreShadowsSingleWindow = false;
+    // config.shouldBeOpaque = false;
+    return config;
+  });
   console.log(config);
 
-  const image = await time("captureImage", () => SC.captureImage(filter));
+  const image = await time("captureImage", () =>
+    SC.captureImage(filter, config)
+  );
   console.log(image);
 
   const imageData = await time("getImageData", () => image.getImageData());

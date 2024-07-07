@@ -1,3 +1,4 @@
+import CoreGraphics
 import NodeAPI
 import ScreenCaptureKit
 
@@ -79,7 +80,9 @@ extension SCDisplay: NodeValueConvertible {
 @available(macOS 12.3, *)
 @NodeClass final class Window {
   let inner: SCWindow
-
+  
+  private var lastMeasuredShadow: (windowSize: CGSize, shadowSize: CGSize)? = nil
+  
   init(_ inner: SCWindow) {
     self.inner = inner
   }
@@ -107,6 +110,31 @@ extension SCDisplay: NodeValueConvertible {
     inner.isOnScreen
   }
 
+  @NodeMethod func sizeWithShadow() -> CGSize? {
+    let currentSize = frame.size
+    
+    if let measured = lastMeasuredShadow, measured.windowSize == currentSize {
+      return measured.shadowSize
+    }
+    
+    // https://developer.apple.com/documentation/coregraphics/1454852-cgwindowlistcreateimage
+    // Appears to be the only way we can ask for the shadow bounds:
+    // capture the shadow only with null bounds then measure the image
+    // CGImageRef CGWindowListCreateImage(CGRect screenBounds, CGWindowListOption listOption, CGWindowID windowID, CGWindowImageOption imageOption);
+    let imageOption = [CGWindowImageOption.onlyShadows, CGWindowImageOption.nominalResolution]
+    guard
+      let image = CGWindowListCreateImage(
+        CGRectNull, CGWindowListOption.optionIncludingWindow, inner.windowID,
+        [CGWindowImageOption.onlyShadows, CGWindowImageOption.nominalResolution])
+    else {
+      return nil
+    }
+    
+    let currentShadowSize = image.size
+    lastMeasuredShadow = (currentSize, currentShadowSize)
+    return currentShadowSize
+  }
+
   @NodeName(NodeSymbol.utilInspectCustom)
   @NodeMethod
   @NodeActor
@@ -127,6 +155,7 @@ struct ContentFilterArgs: NodeValueCreatable {
   static func from(_ value: NodeAPI.NodeObject) throws -> ContentFilterArgs {
     Self(
       window: try value["window"].as(Window.self),
+      includeWindowShadow: try value["includeWindowShadow"].as(Bool.self),
       display: try value["display"].as(Display.self),
       excludeMenuBar: try value["excludeMenuBar"].as(Bool.self),
       windows: try value["windows"].as([Window].self),
@@ -137,6 +166,7 @@ struct ContentFilterArgs: NodeValueCreatable {
   }
 
   let window: Window?
+  let includeWindowShadow: Bool?
   let display: Display?
   let excludeMenuBar: Bool?
   let windows: [Window]?
@@ -145,6 +175,24 @@ struct ContentFilterArgs: NodeValueCreatable {
   let excludingApplications: [RunningApplication]?
 
   @NodeActor func contentFilter() throws -> ContentFilter {
+    let contentFilter = try baseContentFilter()
+    if window != nil {
+      contentFilter.window = window
+      contentFilter.includeSingleWindowShadows = includeWindowShadow ?? false
+    } else {
+      contentFilter.display = display
+    }
+    
+    if #available(macOS 14.2, *) {
+      if let excludeMenuBar = self.excludeMenuBar {
+        contentFilter.inner.includeMenuBar = !excludeMenuBar
+      }
+    }
+    
+    return contentFilter
+  }
+
+  @NodeActor private func baseContentFilter() throws -> ContentFilter {
     // https://forums.developer.apple.com/forums/thread/743615
     _ = CGMainDisplayID()
 
@@ -183,6 +231,9 @@ struct ContentFilterArgs: NodeValueCreatable {
 @available(macOS 12.3, *)
 @NodeClass final class ContentFilter {
   let inner: SCContentFilter
+  var includeSingleWindowShadows = false
+  var window: Window? = nil
+  var display: Display? = nil
 
   init(_ inner: SCContentFilter) {
     self.inner = inner
@@ -197,11 +248,17 @@ struct ContentFilterArgs: NodeValueCreatable {
   }
 
   @NodeProperty var scaledContentSize: CGSize {
-    CGSize(
-      width: contentRect.size.width * pointPixelScale,
-      height: contentRect.size.height * pointPixelScale)
+    if let window = self.window, includeSingleWindowShadows, let sizeWithShadow = window.sizeWithShadow() {
+      return sizeWithShadow.scaled(by: pointPixelScale)
+    }
+    return contentRect.size.scaled(by: pointPixelScale)
   }
-  
+
+  @available(macOS 14.2, *)
+  @NodeProperty var includeMenuBar: Bool {
+    inner.includeMenuBar
+  }
+
   @available(macOS 14.0, *)
   @NodeActor
   @NodeMethod
@@ -210,6 +267,7 @@ struct ContentFilterArgs: NodeValueCreatable {
     config.captureResolution = .best
     config.size = scaledContentSize
     config.scalesToFit = false
+    config.ignoreShadowsSingleWindow = !includeSingleWindowShadows
     return config
   }
 
@@ -281,15 +339,15 @@ extension SCCaptureResolutionType: NodeValueConvertible, CustomDebugStringConver
     @unknown default: "unknown"
     }
   }
-  
+
   func nodeInspect(_ inspector: Inspector) throws -> String {
     "\(try inspector.stylize(inferType: rawValue)) (\(type(of: self)).\(caseName))"
   }
-  
+
   public var debugDescription: String {
     return "\(type(of: self))[\(rawValue) (\(caseName))]"
   }
-  
+
   public func nodeValue() throws -> any NodeAPI.NodeValue {
     try NodeNumber(Double(self.rawValue))
   }
@@ -335,6 +393,8 @@ extension UInt32: NodeValueConvertible, NodeValueCreatable {
   @NodeProperty @Proxy(\.ignoreGlobalClipSingleWindow) var ignoreGlobalClipSingleWindow: Bool
   @NodeProperty @Proxy(\.sourceRect) var sourceRect: CGRect
   @NodeProperty @Proxy(\.destinationRect) var destinationRect: CGRect
+  @NodeProperty @Proxy(\.shouldBeOpaque) var shouldBeOpaque: Bool
+
   @NodeProperty var size: CGSize {
     get {
       CGSize(width: width, height: height)
@@ -350,11 +410,18 @@ extension UInt32: NodeValueConvertible, NodeValueCreatable {
   @NodeActor
   func nodeInspect(_ inspector: Inspector) throws -> String {
     try inspector.nodeClass(
-      value: self, paths: ("size", \.size),
+      value: self,
+      paths:  // Output
+      ("size", \.size),
       ("captureResolution", \.captureResolution),
       ("scalesToFit", \.scalesToFit),
       ("sourceRect", \.sourceRect),
-      ("destinationRect", \.destinationRect)
+      ("destinationRect", \.destinationRect),
+      // Input
+      ("showsCursor", \.showsCursor),
+      ("shouldBeOpaque", \.shouldBeOpaque),
+      ("ignoreShadowsDisplay", \.ignoreShadowsDisplay),
+      ("ignoreShadowsSingleWindow", \.ignoreShadowsSingleWindow)
     )
   }
 }

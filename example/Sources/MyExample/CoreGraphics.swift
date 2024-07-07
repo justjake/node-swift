@@ -55,6 +55,10 @@ extension CGSize: NodeValueConvertible, NodeValueCreatable, NodeInspect {
     let height = try value.propertyAs("height", Double.self)
     return Self(width: width, height: height)
   }
+  
+  public func scaled(by scale: CGFloat) -> CGSize {
+    Self(width: width * scale, height: height * scale)
+  }
 }
 
 extension CGRect: NodeValueConvertible, NodeValueCreatable, NodeInspect {
