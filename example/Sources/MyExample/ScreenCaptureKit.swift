@@ -125,6 +125,63 @@ extension SCDisplay: NodeValueConvertible {
 }
 
 @available(macOS 12.3, *)
+struct ContentFilterArgs: NodeValueCreatable {
+  typealias ValueType = NodeObject
+  
+  static func from(_ value: NodeAPI.NodeObject) throws -> ContentFilterArgs {
+    Self(
+      window: try value["window"].as(Window.self),
+      display: try value["display"].as(Display.self),
+      excludeMenuBar: try value["excludeMenuBar"].as(Bool.self),
+      windows: try value["windows"].as([Window].self),
+      excludingWindows: try value["excludingWindows"].as([Window].self),
+      includingApplications: try value["includingApplications"].as([RunningApplication].self),
+      excludingApplications: try value["excludingApplications"].as([RunningApplication].self)
+    )
+  }
+  
+  let window: Window?
+  let display: Display?
+  let excludeMenuBar: Bool?
+  let windows: [Window]?
+  let excludingWindows: [Window]?
+  let includingApplications: [RunningApplication]?
+  let excludingApplications: [RunningApplication]?
+  
+  @NodeActor func contentFilter() throws -> ContentFilter {
+    // https://forums.developer.apple.com/forums/thread/743615
+    _ = CGMainDisplayID()
+    
+    if let window = self.window {
+      return ContentFilter(SCContentFilter(desktopIndependentWindow: window.inner))
+    }
+    
+    guard let display = self.display?.inner else {
+      throw MyError.missingProperty("Must either pass a window or a display")
+    }
+    
+    let excludingWindows = self.excludingWindows?.map ({ $0.inner }) ?? []
+    let includingWindows = self.windows?.map({ $0.inner }) ?? []
+    
+    if let excludingApplications = self.excludingApplications?.map({ $0.inner }) {
+      return ContentFilter(SCContentFilter(display: display, excludingApplications: excludingApplications, exceptingWindows: includingWindows))
+    }
+    
+    if let includingApplications = self.includingApplications?.map({ $0.inner }) {
+      return ContentFilter(SCContentFilter(display: display, including: includingApplications, exceptingWindows: excludingWindows))
+    }
+    
+    if self.windows != nil {
+      return ContentFilter(SCContentFilter(display: display, including: includingWindows))
+    }
+    
+    return ContentFilter(SCContentFilter(display: display, excludingWindows: excludingWindows))
+  }
+}
+
+
+
+@available(macOS 12.3, *)
 @NodeClass final class ContentFilter {
   let inner: SCContentFilter
   
@@ -169,20 +226,19 @@ extension SCShareableContent: NodeValueConvertible {
   onScreenWindowsOnlyAbove?: SCWindow;
   onScreenWindowsOnlyBelow?: SCWindow;
   */
-  @NodeActor public static func getNodeSharableContent(nodeArgs: NodeObject) async throws -> SCShareableContent {
-    let includeDesktopWindows = try nodeArgs["includeDesktopWindows"].as(Bool.self) ?? false
-    let onScreenWindowsOnly = try nodeArgs["onScreenWindowsOnly"].as(Bool.self)
+  @NodeActor public static func getNodeSharableContent(nodeArgs: NodeObject? = nil) async throws -> SCShareableContent {
+    let includeDesktopWindows = try nodeArgs?["includeDesktopWindows"].as(Bool.self) ?? false
     
-    if let onScreenWindowsOnlyAbove = try nodeArgs["onScreenWindowsOnlyAbove"].as(Window.self) {
+    if let onScreenWindowsOnlyAbove = try nodeArgs?["onScreenWindowsOnlyAbove"].as(Window.self) {
       return try await self.excludingDesktopWindows(!includeDesktopWindows, onScreenWindowsOnlyAbove: onScreenWindowsOnlyAbove.inner)
     }
     
-    if let onScreenWindowsOnlyBelow = try nodeArgs["onScreenWindowsOnlyBelow"].as(Window.self) {
+    if let onScreenWindowsOnlyBelow = try nodeArgs?["onScreenWindowsOnlyBelow"].as(Window.self) {
       return try await self.excludingDesktopWindows(!includeDesktopWindows, onScreenWindowsOnlyBelow: onScreenWindowsOnlyBelow.inner)
 
     }
     
-    if let onScreenWindowsOnly = try nodeArgs["onScreenWindowsOnly"].as(Bool.self) {
+    if let onScreenWindowsOnly = try nodeArgs?["onScreenWindowsOnly"].as(Bool.self) {
       return try await self.excludingDesktopWindows(!includeDesktopWindows, onScreenWindowsOnly: onScreenWindowsOnly)
     }
     
@@ -194,3 +250,41 @@ extension SCShareableContent: NodeValueConvertible {
     return try await self.current
   }
 }
+
+@available(macOS 12.3, *)
+@NodeClass final class StreamConfiguration {
+  let inner: SCStreamConfiguration
+  
+  init(_ inner: SCStreamConfiguration) {
+    self.inner = inner
+  }
+  
+  @NodeProperty var width: Int {
+    get {
+      inner.width
+    }
+    set {
+      inner.width = newValue
+    }
+  }
+  
+  @NodeProperty var height: Int {
+    get {
+      inner.height
+    }
+    set {
+      inner.height = newValue
+    }
+  }
+  
+  @NodeProperty var showsCursor: Bool {
+    get {
+      inner.showsCursor
+    }
+    set {
+      inner.showsCursor = newValue
+    }
+  }
+}
+
+

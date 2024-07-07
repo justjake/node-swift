@@ -4,7 +4,7 @@
   "description": "Example node-swift package",
   "main": "index.js",
   "scripts": {
-    "install": "node-swift rebuild"
+    "start": "node-swift build && tsx index.ts"
   },
   "author": "Kabir Oberai",
   "license": "CC0-1.0",

@@ -1,63 +1,49 @@
-import { CGRect } from "./CoreGraphics";
+import { CGRect, CGSize } from "./CoreGraphics";
+import {
+  createStreamConfiguration as RAW_createStreamConfiguration,
+  getSharableContent as RAW_getSharableContent,
+  createContentFilter as RAW_createContentFilter,
+  captureImage as RAW_captureImage,
+} from "./.build/Module.node";
 
-export class SCDisplay {
-  private constructor(public readonly displayID: string) {}
-
-  get frame(): CGRect {
-    throw new Error("not implemented");
-  }
-
-  get width() {
-    return this.frame.size.width;
-  }
-
-  get height() {
-    return this.frame.size.height;
-  }
+export interface SCDisplay {
+  readonly displayID: string;
+  readonly frame: CGRect;
+  readonly width: number;
+  readonly height: number;
 }
 
-export class SCRunningApplication {
-  private constructor(
-    public readonly processID: number,
-    public readonly bundleIdentifier: string,
-    public readonly applicationName: string
-  ) {}
+export interface SCRunningApplication {
+  readonly processID: number;
+  readonly bundleIdentifier: string;
+  readonly applicationName: string;
 }
 
-export class SCWindow {
-  private constructor(public readonly windowID: string) {}
-
-  get frame(): CGRect {
-    throw new Error("not implemented");
-  }
-
+export interface SCWindow {
+  readonly windowID: number;
+  readonly frame: CGRect;
   /** The layer of the window relative to other windows. */
-  get windowLayer(): number {
-    throw new Error("not implemented");
-  }
-
+  readonly windowLayer: number;
   /** A boolean value that indicates whether the window is on screen.  */
-  get isOnScreen(): boolean {
-    throw new Error("not implemented");
-  }
+  readonly isOnScreen: boolean;
 }
 
-export class SCSharableContent {
-  static async getSharableContent(args: {
+export interface SCSharableContent {
+  readonly windows: SCWindow[];
+  readonly displays: SCDisplay[];
+  readonly applications: SCRunningApplication[];
+}
+
+export const SCSharableContent = {
+  async getSharableContent(args: {
     includeDesktopWindows?: boolean;
     onScreenWindowsOnly?: boolean;
     onScreenWindowsOnlyAbove?: SCWindow;
     onScreenWindowsOnlyBelow?: SCWindow;
   }): Promise<SCSharableContent> {
-    throw new Error("not implemented");
-  }
-
-  private constructor(
-    readonly windows: SCWindow[],
-    readonly displays: SCDisplay[],
-    readonly applications: SCRunningApplication[]
-  ) {}
-}
+    return RAW_getSharableContent(args);
+  },
+} as const;
 
 interface SCContentFilterDisplayBase {
   display: SCDisplay;
@@ -85,37 +71,27 @@ interface SCContentFilterDisplayExcludingApps
   windows?: SCWindow[];
 }
 
-export class SCContentFilter {
-  static forWindow(window: SCWindow): SCContentFilter {
-    throw new Error("not implemented");
-  }
+interface SCContentFilter {
+  contentRect: CGRect;
+  pointPixelScale: number;
+  includeMenuBar: boolean;
+}
 
-  static forDisplay(
+export const SCContentFilter = {
+  forWindow(window: SCWindow): SCContentFilter {
+    return RAW_createContentFilter({ window });
+  },
+
+  forDisplay(
     args:
       | SCContentFilterDisplayWindows
       | SCContentFilterDisplayExcludingWindows
       | SCContentFilterDisplayIncludingApps
       | SCContentFilterDisplayExcludingApps
-  ) {
-    throw new Error("not implemented");
-  }
-
-  private constructor(
-    /** https://developer.apple.com/documentation/screencapturekit/scshareablecontentstyle */
-    readonly style: number
-  ) {}
-
-  get contentRect(): CGRect {
-    throw new Error("not implemented");
-  }
-
-  /** The scaling factor used to translate screen points into pixels.  */
-  get pointPixelScale(): number {
-    throw new Error("not implemented");
-  }
-
-  includeMenuBar = false;
-}
+  ): SCContentFilter {
+    return RAW_createContentFilter(args);
+  },
+};
 
 type TODO = "todo";
 type CFString = TODO;
@@ -123,13 +99,13 @@ type CGColor = TODO;
 type OSType = TODO;
 type CMTime = TODO;
 
-abstract class SCStreamConfigurationVars {
-  abstract width: number;
-  abstract height: number;
-  abstract scalesToFit: boolean;
-  abstract sourceRect: CGRect;
-  abstract destinationRect: CGRect;
-  abstract preservesAspectRatio: boolean;
+interface SCStreamConfiguration {
+  width: number;
+  height: number;
+  scalesToFit: boolean;
+  sourceRect: CGRect;
+  destinationRect: CGRect;
+  preservesAspectRatio: boolean;
   /*
 BGRA
 Packed little endian ARGB8888.
@@ -143,45 +119,44 @@ Two-plane “video” range YCbCr 4:2:0.
 420f
 Two-plane “full” range YCbCr 4:2:0.
   */
-  abstract pixelFormat: OSType;
-  abstract colorMatrix: CFString;
-  abstract colorSpaceName: CFString;
-  abstract backgroundColor: CGColor;
-  abstract showsCursor: boolean;
-  abstract shouldBeOpaque: boolean;
-  abstract capturesShadowsOnly: boolean;
-  abstract ignoreShadowsDisplay: boolean;
-  abstract ignoreShadowsSingleWindow: boolean;
-  abstract ignoreGlobalClipDisplay: boolean;
-  abstract ignoreGlobalClipSingleWindow: boolean;
-  abstract queueDepth: number;
-  abstract minimumFrameInterval: CMTime;
-  abstract captureResolution: number; // SCCaptureResolutionType
-  abstract capturesAudio: boolean;
-  abstract sampleRate: number;
-  abstract channelCount: number;
-  abstract excludesCurrentProcessAudio: boolean;
-  abstract streamName: string | undefined;
+  pixelFormat: OSType;
+  colorMatrix: CFString;
+  colorSpaceName: CFString;
+  backgroundColor: CGColor;
+  showsCursor: boolean;
+  shouldBeOpaque: boolean;
+  capturesShadowsOnly: boolean;
+  ignoreShadowsDisplay: boolean;
+  ignoreShadowsSingleWindow: boolean;
+  ignoreGlobalClipDisplay: boolean;
+  ignoreGlobalClipSingleWindow: boolean;
+  queueDepth: number;
+  minimumFrameInterval: CMTime;
+  captureResolution: number; // SCCaptureResolutionType
+  capturesAudio: boolean;
+  sampleRate: number;
+  channelCount: number;
+  excludesCurrentProcessAudio: boolean;
+  streamName: string | undefined;
 }
 
-export class SCStreamConfiguration extends SCStreamConfigurationVars {
-  static create(
-    args: Partial<SCStreamConfigurationVars>
-  ): SCStreamConfiguration {
-    throw new Error("Not implemented");
-  }
-}
+export const SCStreamConfiguration = {
+  create(args: Partial<SCStreamConfiguration> = {}): SCStreamConfiguration {
+    const result = RAW_createStreamConfiguration() as SCStreamConfiguration;
+    Object.assign(result, args);
+    return result;
+  },
+} as const;
 
-class CGImage {
-  getData(): Promise<Uint8Array> {
-    throw new Error("Not implemented");
-  }
+export interface ScreenShotImage {
+  size: CGSize;
+  getImageData(): Promise<Uint8ClampedArray>;
 }
 
 /** https://developer.apple.com/documentation/screencapturekit/scscreenshotmanager/4251334-captureimage */
 export async function captureImage(
   contentFilter: SCContentFilter,
   config: SCStreamConfiguration
-): Promise<CGImage> {
-  throw new Error("not implemented");
+): Promise<ScreenShotImage> {
+  return RAW_captureImage(contentFilter, config);
 }
