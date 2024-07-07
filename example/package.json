@@ -4,7 +4,7 @@
   "description": "Example node-swift package",
   "main": "index.js",
   "scripts": {
-    "start": "node-swift build && tsx index.ts"
+    "start": "node-swift build && tsx index.ts && open image.png"
   },
   "author": "Kabir Oberai",
   "license": "CC0-1.0",

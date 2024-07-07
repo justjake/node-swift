@@ -28,15 +28,24 @@ async function main() {
         (a, b) => CGRect.area(b.frame) - CGRect.area(a.frame)
       )[0]
   );
+  console.log(biggestWindow);
+
   const filter = await time("createFilter", () =>
     SC.SCContentFilter.forWindow(biggestWindow)
   );
+  console.log(filter);
+
   const config = await time("createConfig", () =>
     SC.SCStreamConfiguration.create()
   );
+  config.size = filter.scaledContentSize;
+  console.log(config);
+
   const image = await time("captureImage", () =>
     SC.captureImage(filter, config)
   );
+  console.log(image);
+
   const imageData = await time("getImageData", () => image.getImageData());
 
   const fs = await import("node:fs/promises");

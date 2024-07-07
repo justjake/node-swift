@@ -74,6 +74,7 @@ interface SCContentFilterDisplayExcludingApps
 interface SCContentFilter {
   contentRect: CGRect;
   pointPixelScale: number;
+  scaledContentSize: CGSize;
   includeMenuBar: boolean;
 }
 
@@ -102,6 +103,7 @@ type CMTime = TODO;
 interface SCStreamConfiguration {
   width: number;
   height: number;
+  size: CGSize; // width and height
   scalesToFit: boolean;
   sourceRect: CGRect;
   destinationRect: CGRect;

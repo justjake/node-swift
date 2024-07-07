@@ -158,8 +158,12 @@ protocol NodeInspect {
       let name = namePath.0
       let path = namePath.1
       let convertible = try path(value)
-      print("convertible type: \(type(of: convertible))")
       if let inspectResult = convertible as? InspectResult {
+        strings.append("\(name): \(inspectResult.value)")
+        return
+      }
+      if let inspectable = convertible as? NodeInspect {
+        let inspectResult = try inspect(inspectable)
         strings.append("\(name): \(inspectResult.value)")
         return
       }
