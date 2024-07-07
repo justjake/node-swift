@@ -1,12 +1,14 @@
 import ScreenCaptureKit
 import NodeAPI
 
+
 @available(macOS 12.3, *)
 extension SCDisplay: NodeValueConvertible {
   public func nodeValue() throws -> any NodeAPI.NodeValue {
     try NodeObject(coercing: Display(self))
   }
 }
+
 
 @available(macOS 12.3, *)
 @NodeClass final class Display: NodeClass {
@@ -15,15 +17,9 @@ extension SCDisplay: NodeValueConvertible {
   init(_ inner: SCDisplay) {
     self.inner = inner
   }
-
-  @NodeName("potato")
-  @NodeProperty
-  var potatoInternal: String {
-    "hi"
-  }
   
-  @NodeProperty var displayID: String {
-    inner.displayID.formatted()
+  @NodeProperty var displayID: Int {
+    Int(inner.displayID)
   }
   
   @NodeProperty var frame: CGRect {
@@ -36,6 +32,16 @@ extension SCDisplay: NodeValueConvertible {
   
   @NodeProperty var height: Int {
     inner.height
+  }
+
+  @NodeName(NodeSymbol.utilInspectCustom)
+  @NodeMethod
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    let name = try inspector.stylize(special: Display.name)
+    let displayID = try inspector.stylize(inferType: self.displayID)
+    let width = try inspector.stylize(inferType: self.width)
+    let height = try inspector.stylize(inferType: self.height)
+    return "\(name) { displayID: \(displayID) \(width)x\(height) }"
   }
 }
 
@@ -58,6 +64,19 @@ extension SCDisplay: NodeValueConvertible {
   @NodeProperty var applicationName: String {
     inner.applicationName
   }
+
+  @NodeName(NodeSymbol.utilInspectCustom)
+  @NodeMethod
+  @NodeActor
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    try inspector.nodeClass(
+      value: self,
+      paths:
+        ("applicationName", \.applicationName), 
+        ("bundleIdentifier", \.bundleIdentifier),
+        ("processId", \.processID)
+    )
+  }
 }
 
 @available(macOS 12.3, *)
@@ -67,9 +86,16 @@ extension SCDisplay: NodeValueConvertible {
   init(_ inner: SCWindow) {
     self.inner = inner
   }
+
+  @NodeProperty var owningApplication: RunningApplication? {
+    guard let owningApplication = inner.owningApplication else {
+      return nil
+    }
+    return RunningApplication(owningApplication)
+  }
   
-  @NodeProperty var windowID: String {
-    inner.windowID.formatted()
+  @NodeProperty var windowID: Int {
+    Int(inner.windowID)
   }
   
   @NodeProperty var frame: CGRect {
@@ -82,6 +108,19 @@ extension SCDisplay: NodeValueConvertible {
   
   @NodeProperty var isOnScreen: Bool {
     inner.isOnScreen
+  }
+
+  @NodeName(NodeSymbol.utilInspectCustom)
+  @NodeMethod
+  @NodeActor
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    try inspector.nodeClass(
+      value: self,
+      paths:
+        ("windowId", \.windowID), 
+        ("owningApplication.bundleIdentifier", \.inner.owningApplication?.bundleIdentifier),
+        ("frame", { try inspector.inspect($0.frame) })
+    )
   }
 }
 
@@ -100,13 +139,25 @@ extension SCDisplay: NodeValueConvertible {
   @NodeProperty var pointPixelScale: Double {
     Double(inner.pointPixelScale)
   }
+
+  @NodeName(NodeSymbol.utilInspectCustom)
+  @NodeMethod
+  @NodeActor
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    try inspector.nodeClass(
+      value: self,
+      paths:
+        ("contentRect", \.contentRect), 
+        ("pointPixelScale", \.pointPixelScale)
+    )
+  }
 }
 
 @available(macOS 12.3, *)
 extension SCShareableContent: NodeValueConvertible {
   public func nodeValue() throws -> any NodeAPI.NodeValue {
     try NodeObject([
-      "displays": self.displays.map { inner in try inner.nodeValue() },
+      "displays": self.displays,
       "applications": self.applications.map { inner in RunningApplication(inner) },
       "windows": self.windows.map { inner in Window(inner) }
     ])

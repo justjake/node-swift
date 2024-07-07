@@ -13,7 +13,7 @@ extension CGFloat: NodeValueConvertible, NodeValueCreatable {
   }
 }
 
-extension CGPoint: NodeValueConvertible, NodeValueCreatable {
+extension CGPoint: NodeValueConvertible, NodeValueCreatable, NodeInspect {
   public typealias ValueType = NodeObject
   
   public func nodeValue() throws -> any NodeValue {
@@ -28,10 +28,18 @@ extension CGPoint: NodeValueConvertible, NodeValueCreatable {
     let y = try value.propertyAs("y", Double.self)
     return Self(x: x, y: y)
   }
+  
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    "x: \(try inspector.stylize(inferType: x)) y: \(try inspector.stylize(inferType: y))"
+  }
 }
 
 
-extension CGSize: NodeValueConvertible, NodeValueCreatable {
+extension CGSize: NodeValueConvertible, NodeValueCreatable, NodeInspect {
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    "\(try inspector.stylize(inferType: width))x\(try inspector.stylize(inferType: height))"
+  }
+  
   public typealias ValueType = NodeObject
   
   public func nodeValue() throws -> any NodeValue {
@@ -48,7 +56,7 @@ extension CGSize: NodeValueConvertible, NodeValueCreatable {
   }
 }
 
-extension CGRect: NodeValueConvertible, NodeValueCreatable {
+extension CGRect: NodeValueConvertible, NodeValueCreatable, NodeInspect {
   public typealias ValueType = NodeObject
   
   public func nodeValue() throws -> any NodeValue {
@@ -62,5 +70,9 @@ extension CGRect: NodeValueConvertible, NodeValueCreatable {
     let origin = try value.propertyAs("origin", CGPoint.self)
     let size = try value.propertyAs("size", CGSize.self)
     return Self(origin: origin, size: size)
+  }
+  
+  func nodeInspect(_ inspector: Inspector) throws -> String {
+    "[\(try inspector.inspect(origin as NodeInspect)) \(try inspector.inspect(size as NodeInspect))]"
   }
 }
