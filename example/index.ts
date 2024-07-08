@@ -31,11 +31,11 @@ async function main() {
   console.log(biggestWindow);
 
   const filter = await time("createFilter", () => {
-    return SC.pickContentFilter();
-    // return SC.SCContentFilter.forWindow({
-    //   window: biggestWindow,
-    //   includeWindowShadow: true,
-    // })
+    // return SC.pickContentFilter();
+    return SC.SCContentFilter.forWindow({
+      window: biggestWindow,
+      includeWindowShadow: true,
+    });
     // return SC.SCContentFilter.forDisplay({
     //   display: sharable.displays[0],
     //   excludingWindows: [

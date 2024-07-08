@@ -12,7 +12,8 @@ extension SCDisplay: NodeValueConvertible {
 }
 
 @available(macOS 12.3, *)
-@NodeClass final class Display: NodeClass {
+@NodeClass final class Display: NodeInspect {
+  typealias Wrapped = SCDisplay
   let inner: SCDisplay
 
   init(_ inner: SCDisplay) {
@@ -38,16 +39,16 @@ extension SCDisplay: NodeValueConvertible {
   @NodeName(NodeSymbol.utilInspectCustom)
   @NodeMethod
   func nodeInspect(_ inspector: Inspector) throws -> String {
-    let name = try inspector.stylize(special: Display.name)
-    let displayID = try inspector.stylize(inferType: self.displayID)
-    let width = try inspector.stylize(inferType: self.width)
-    let height = try inspector.stylize(inferType: self.height)
-    return "\(name) { displayID: \(displayID) \(width)x\(height) }"
+    try inspector.nodeClass(
+      value: self, paths:
+        ("displayID", \.displayID),
+        ("frame", \.frame)
+    )
   }
 }
 
 @available(macOS 12.3, *)
-@NodeClass final class RunningApplication {
+@NodeClass final class RunningApplication: NodeInspect {
   let inner: SCRunningApplication
 
   init(_ inner: SCRunningApplication) {
@@ -80,7 +81,7 @@ extension SCDisplay: NodeValueConvertible {
 }
 
 @available(macOS 12.3, *)
-@NodeClass final class Window {
+@NodeClass final class Window: NodeInspect {
   let inner: SCWindow
   
   private var lastMeasuredShadow: (windowSize: CGSize, shadowSize: CGSize)? = nil
@@ -123,7 +124,6 @@ extension SCDisplay: NodeValueConvertible {
     // Appears to be the only way we can ask for the shadow bounds:
     // capture the shadow only with null bounds then measure the image
     // CGImageRef CGWindowListCreateImage(CGRect screenBounds, CGWindowListOption listOption, CGWindowID windowID, CGWindowImageOption imageOption);
-    let imageOption = [CGWindowImageOption.onlyShadows, CGWindowImageOption.nominalResolution]
     guard
       let image = CGWindowListCreateImage(
         CGRectNull, CGWindowListOption.optionIncludingWindow, inner.windowID,
@@ -156,14 +156,14 @@ struct ContentFilterArgs: NodeValueCreatable {
 
   static func from(_ value: NodeAPI.NodeObject) throws -> ContentFilterArgs {
     Self(
-      window: try value["window"].as(Window.self),
-      includeWindowShadow: try value["includeWindowShadow"].as(Bool.self),
-      display: try value["display"].as(Display.self),
-      excludeMenuBar: try value["excludeMenuBar"].as(Bool.self),
-      windows: try value["windows"].as([Window].self),
-      excludingWindows: try value["excludingWindows"].as([Window].self),
-      includingApplications: try value["includingApplications"].as([RunningApplication].self),
-      excludingApplications: try value["excludingApplications"].as([RunningApplication].self)
+      window: try value.window.as(Window.self),
+      includeWindowShadow: try value.inclideWindowShadow.as(Bool.self),
+      display: try value.display.as(Display.self),
+      excludeMenuBar: try value.excludeMenuBar.as(Bool.self),
+      windows: try value.windows.as([Window].self),
+      excludingWindows: try value.excludingWindows.as([Window].self),
+      includingApplications: try value.includingApplications.as([RunningApplication].self),
+      excludingApplications: try value.excludingApplications.as([RunningApplication].self)
     )
   }
 
@@ -231,7 +231,7 @@ struct ContentFilterArgs: NodeValueCreatable {
 }
 
 @available(macOS 12.3, *)
-@NodeClass final class ContentFilter {
+@NodeClass final class ContentFilter: NodeInspect {
   let inner: SCContentFilter
   var includeSingleWindowShadows = false
   var window: Window? = nil
@@ -517,41 +517,17 @@ extension SCContentSharingPickerConfiguration: NodeValueCreatable {
   }
   
   func preset() async throws -> SCContentFilter {
-    class PickerObserver: NSObject, SCContentSharingPickerObserver, NSApplicationDelegate {
+    class PickerObserver: NSObject, SCContentSharingPickerObserver {
       typealias Promise = CheckedContinuation<SCContentFilter, Error>
       var continuation: Promise? = nil
       var config: SCContentSharingPickerConfiguration? = nil
-      var window: NSWindow?
-      var launched: Bool = false
       
-      func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
-        print("did finish launching")
-        launched = true
-        begin()
-      }
-
-      func applicationWillTerminate(_ aNotification: Notification) {
-        // Insert code here to tear down your application
-        print("will terminate")
-      }
-
-      func prepare(_ continuation: Promise, config: SCContentSharingPickerConfiguration) {
+      func present(_ continuation: Promise, config: SCContentSharingPickerConfiguration) {
         self.continuation = continuation
         self.config = config
-        begin()
-      }
-      
-      func begin() {
-        guard let continuation = self.continuation, let config = self.config, launched else {
-          print("not ready yet")
-          return
-        }
-        print("ready to begin")
         SCContentSharingPicker.shared.add(self)
         SCContentSharingPicker.shared.configuration = config
         SCContentSharingPicker.shared.present()
-        print("presented!")
       }
       
       func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
@@ -570,33 +546,32 @@ extension SCContentSharingPickerConfiguration: NodeValueCreatable {
       }
       
       func done() {
-        print("done called")
         SCContentSharingPicker.shared.remove(self)
       }
     }
     
-    let observer = PickerObserver()
-    
-      someMain(observer)
-    
     return try await withCheckedThrowingContinuation { (continuation: PickerObserver.Promise) in
-      print("setSharedConfigration")
-      observer.prepare(continuation, config: self)
+      print("withCheckedThrowingContinuation")
+      let pickerObserver = PickerObserver()
+      pickerObserver.present(continuation, config: self)
     }
   }
 }
 
 
 // This doesn't work at all.
-func someMain(_ appDelegate: NSApplicationDelegate) {
-  print("Thread: \(Thread.current) isMain: \(Thread.isMainThread) isMultiThreaded: \(Thread.isMultiThreaded())")
-  print("starting NSApplicationMain")
-  let app = NSApplication.shared
-  app.delegate = appDelegate
-  _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
-  print("Done main")
-}
-
+//func someMain(_ appDelegate: NSApplicationDelegate) {
+//  print("Thread: \(Thread.current) isMain: \(Thread.isMainThread) isMultiThreaded: \(Thread.isMultiThreaded())")
+//  print("starting NSApplicationMain")
+//  let app = NSApplication.shared
+//  app.delegate = appDelegate
+//  _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+//  print("Done main")
+//}
+//
+//
+// Neither does this, since it isn't actually the main UNIX thread of the process,
+// It can't do main-thread-only things like starting NSApplicationMain.
 //class MainLoopThread: Thread {
 //  static var shared = MainLoopThread()
 //  
