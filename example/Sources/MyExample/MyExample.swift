@@ -3,29 +3,46 @@ import NodeAPI
 import ScreenCaptureKit
 
 @available(macOS 14.0, *)
-#NodeModule(exports: [
-  "nums": [Double.pi.rounded(.down), Double.pi.rounded(.up)],
-  "str": String(repeating: "NodeSwift! ", count: 3),
-  "rect": CGRect(origin: CGPoint(x: 0, y: 0), size: CGSize(width: 100, height: 200)),
-  "add": try NodeFunction { (a: Double, b: Double) in
-    print("calculating...")
-    try await Task.sleep(nanoseconds: 500_000_000)
-    return "\(a) + \(b) = \(a + b)"
-  },
-  "getSharableContent": try NodeFunction { (args: NodeArguments) async throws in
+@NodeActor
+struct NodeModule {
+  static func getSharableContent(args: NodeArguments) async throws -> NodeValueConvertible {
     return try await SCShareableContent.getNodeSharableContent(
       nodeArgs: args.first?.as(NodeObject.self))
-  },
-  "createStreamConfiguration": try NodeFunction {
+  }
+  
+  static func createStreamConfiguration() -> StreamConfiguration {
     let base = SCStreamConfiguration()
     return StreamConfiguration(base)
-  },
-  "createContentFilter": try NodeFunction { (args: ContentFilterArgs) throws in
+  }
+  
+  static func createContentFilter(args: ContentFilterArgs) throws -> ContentFilter {
     return try args.contentFilter()
-  },
-  "captureImage": try NodeFunction { (filter: ContentFilter, config: StreamConfiguration?) async throws in
+  }
+  
+  static func captureImage(filter: ContentFilter, config: StreamConfiguration? = nil) async throws -> NodeImage {
     let finalConfig = config ?? filter.createStreamConfiguration()
-    let image = try await SCScreenshotManager.captureImage(contentFilter: filter.inner, configuration: finalConfig.inner)
+    let image = try await SCScreenshotManager.captureImage(
+      contentFilter: filter.inner,
+      configuration: finalConfig.inner
+    )
     return NodeImage(image)
   }
+  
+  static func pickContentFilter(args: SCContentSharingPickerConfiguration) async throws -> ContentFilter {
+    let filter = try await args.preset()
+    // TODO: support window shadows :|
+    return ContentFilter(filter)
+  }
+}
+
+@available(macOS 14.0, *)
+#NodeModule(exports: [
+  "SCContentSharingPickerMode": try SCContentSharingPickerMode.nodeByName(),
+  "getSharableContent": try NodeFunction { try await NodeModule.getSharableContent(args: $0) },
+  "createStreamConfiguration": try NodeFunction { NodeModule.createStreamConfiguration() },
+  "createContentFilter": try NodeFunction { try NodeModule.createContentFilter(args: $0) },
+  "captureImage": try NodeFunction { (filter: ContentFilter, config: StreamConfiguration?) async throws in
+    try await NodeModule.captureImage(filter: filter, config: config)
+  },
+  "pickContentFilter": try NodeFunction { try await NodeModule.pickContentFilter(args: $0) },
 ])

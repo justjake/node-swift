@@ -30,21 +30,20 @@ async function main() {
   );
   console.log(biggestWindow);
 
-  const filter = await time(
-    "createFilter",
-    () =>
-      SC.SCContentFilter.forWindow({
-        window: biggestWindow,
-        includeWindowShadow: true,
-      })
-    // SC.SCContentFilter.forDisplay({
+  const filter = await time("createFilter", () => {
+    return SC.pickContentFilter();
+    // return SC.SCContentFilter.forWindow({
+    //   window: biggestWindow,
+    //   includeWindowShadow: true,
+    // })
+    // return SC.SCContentFilter.forDisplay({
     //   display: sharable.displays[0],
     //   excludingWindows: [
     //     biggestWindow,
     //     ...sharable.windows.filter((_, idx) => idx % 2 === 0),
     //   ],
     // })
-  );
+  });
   console.log(filter);
 
   const config = await time("createConfig", () => {
@@ -66,4 +65,7 @@ async function main() {
   await time("write image.png", () => fs.writeFile("image.png", imageData));
 }
 
-main();
+main().catch((error) => {
+  console.error("node error:", error);
+  process.exit(1);
+});

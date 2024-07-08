@@ -1,3 +1,5 @@
+import Cocoa
+import AppKit
 import CoreGraphics
 import NodeAPI
 import ScreenCaptureKit
@@ -425,3 +427,180 @@ extension UInt32: NodeValueConvertible, NodeValueCreatable {
     )
   }
 }
+
+public protocol CaseNames: CaseIterable {
+  static func name(of case: Self) -> String
+}
+
+public extension CaseNames {
+  static var byName: [String:Self]  {
+    Dictionary(uniqueKeysWithValues: allCases.map { (name(of: $0), $0) })
+  }
+}
+
+public extension CaseNames where Self: OptionSet, Self == Self.Element {
+  var debugDescription: String {
+    Self.allCases.filter { self.contains($0) }.map { "\(Self.self).\(Self.name(of: $0))" }.joined(separator: " | ")
+  }
+}
+
+public extension CaseNames where Self: NodeValueConvertible {
+  @NodeActor static func nodeByName() throws -> NodeObject {
+    let dict = Dictionary(uniqueKeysWithValues: byName.map { ($0.key, $0.value as NodePropertyConvertible) })
+    return try NodeObject(coercing: dict)
+  }
+}
+
+@available(macOS 14.0, *)
+extension SCContentSharingPickerMode: NodeValueCreatable, NodeValueConvertible, CaseNames, CustomDebugStringConvertible {
+  public static func name(of value: SCContentSharingPickerMode) -> String {
+    return switch value {
+    case .multipleApplications: "multipleApplications"
+    case .multipleWindows: "multipleWindows"
+    case .singleApplication: "singleApplication"
+    case .singleWindow: "singleWindow"
+    case .singleDisplay: "singleDisplay"
+    default: "unknown"
+    }
+  }
+  
+  public static var allCases: [SCContentSharingPickerMode] {
+    [.multipleApplications, .multipleWindows, .singleApplication, .singleWindow, .singleDisplay]
+  }
+  
+  public typealias ValueType = NodeNumber
+  
+  public func nodeValue() throws -> any NodeAPI.NodeValue {
+    try NodeNumber(Double(rawValue))
+  }
+  
+  @NodeActor public static func from(_ value: ValueType) throws -> Self {
+    Self(rawValue: UInt(try value.double()))
+  }
+}
+
+@available(macOS 14.0, *)
+extension SCContentSharingPickerConfiguration: NodeValueCreatable {
+  public typealias ValueType = NodeObject
+  
+  /*
+   public var allowedPickerModes: SCContentSharingPickerMode
+
+   public var excludedWindowIDs: [Int]
+
+   public var excludedBundleIDs: [String]
+
+   public var allowsChangingSelectedContent: Bool
+
+   */
+  
+  @NodeActor public static func from(_ value: ValueType) throws -> Self {
+    var result = Self()
+    
+    if let mode = try value["allowedPickerModes"].as(SCContentSharingPickerMode.self) {
+      result.allowedPickerModes = mode
+    }
+    
+    if let excludedWindowIds = try value["excludedWindowIDs"].as([Double].self) {
+      result.excludedWindowIDs = excludedWindowIds.map { Int($0) }
+    }
+    
+    if let excludedBundleIDs = try value["excludedBundleIDs"].as([String].self) {
+      result.excludedBundleIDs = excludedBundleIDs
+    }
+    
+    if let allowsChangingSelectedContent = try value["allowsChangingSelectedContent"].as(Bool.self) {
+      result.allowsChangingSelectedContent = allowsChangingSelectedContent
+    }
+    
+    return result
+  }
+  
+  func preset() async throws -> SCContentFilter {
+    class PickerObserver: NSObject, SCContentSharingPickerObserver, NSApplicationDelegate {
+      typealias Promise = CheckedContinuation<SCContentFilter, Error>
+      var continuation: Promise? = nil
+      var config: SCContentSharingPickerConfiguration? = nil
+      var window: NSWindow?
+      var launched: Bool = false
+      
+      func applicationDidFinishLaunching(_ aNotification: Notification) {
+        // Insert code here to initialize your application
+        print("did finish launching")
+        launched = true
+        begin()
+      }
+
+      func applicationWillTerminate(_ aNotification: Notification) {
+        // Insert code here to tear down your application
+        print("will terminate")
+      }
+
+      func prepare(_ continuation: Promise, config: SCContentSharingPickerConfiguration) {
+        self.continuation = continuation
+        self.config = config
+        begin()
+      }
+      
+      func begin() {
+        guard let continuation = self.continuation, let config = self.config, launched else {
+          print("not ready yet")
+          return
+        }
+        print("ready to begin")
+        SCContentSharingPicker.shared.add(self)
+        SCContentSharingPicker.shared.configuration = config
+        SCContentSharingPicker.shared.present()
+        print("presented!")
+      }
+      
+      func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
+        done()
+        continuation?.resume(throwing: MyError.unsupported("Cancelled"))
+      }
+      
+      func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
+        done()
+        continuation?.resume(returning: filter)
+      }
+      
+      func contentSharingPickerStartDidFailWithError(_ error: any Error) {
+        done()
+        continuation?.resume(throwing: error)
+      }
+      
+      func done() {
+        print("done called")
+        SCContentSharingPicker.shared.remove(self)
+      }
+    }
+    
+    let observer = PickerObserver()
+    
+      someMain(observer)
+    
+    return try await withCheckedThrowingContinuation { (continuation: PickerObserver.Promise) in
+      print("setSharedConfigration")
+      observer.prepare(continuation, config: self)
+    }
+  }
+}
+
+
+// This doesn't work at all.
+func someMain(_ appDelegate: NSApplicationDelegate) {
+  print("Thread: \(Thread.current) isMain: \(Thread.isMainThread) isMultiThreaded: \(Thread.isMultiThreaded())")
+  print("starting NSApplicationMain")
+  let app = NSApplication.shared
+  app.delegate = appDelegate
+  _ = NSApplicationMain(CommandLine.argc, CommandLine.unsafeArgv)
+  print("Done main")
+}
+
+//class MainLoopThread: Thread {
+//  static var shared = MainLoopThread()
+//  
+//  override func main() {
+//    someMain()
+//  }
+//}

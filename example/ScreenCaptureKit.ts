@@ -4,6 +4,8 @@ import {
   getSharableContent as RAW_getSharableContent,
   createContentFilter as RAW_createContentFilter,
   captureImage as RAW_captureImage,
+  pickContentFilter as RAW_pickContentFilter,
+  SCContentSharingPickerMode as RAW_SCContentSharingPickerMode,
 } from "./.build/Module.node";
 
 export interface SCDisplay {
@@ -161,8 +163,45 @@ export interface ScreenShotImage {
 
 /** https://developer.apple.com/documentation/screencapturekit/scscreenshotmanager/4251334-captureimage */
 export async function captureImage(
-  contentFilter: SCContentFilter,
+  contentFilter?: SCContentFilter,
   config?: SCStreamConfiguration
 ): Promise<ScreenShotImage> {
   return RAW_captureImage(contentFilter, config);
+}
+
+/*
+   public var allowedPickerModes: SCContentSharingPickerMode
+
+   public var excludedWindowIDs: [Int]
+
+   public var excludedBundleIDs: [String]
+
+   public var allowsChangingSelectedContent: Bool
+*/
+
+/** Bitfield. Use bitwise or to combine options. */
+export type SCContentSharingPickerMode = number;
+/** Bitfield. Use bitwise or to combine options. */
+export const SCContentSharingPickerMode: SCContentSharingPickerModes =
+  RAW_SCContentSharingPickerMode;
+
+interface SCContentSharingPickerModes {
+  readonly multipleApplications: SCContentSharingPickerMode;
+  readonly multipleWindows: SCContentSharingPickerMode;
+  readonly singleApplication: SCContentSharingPickerMode;
+  readonly singleWindow: SCContentSharingPickerMode;
+  readonly singleDisplay: SCContentSharingPickerMode;
+}
+
+export interface SCContentSharingPickerConfiguration {
+  allowedPickerModes: SCContentSharingPickerMode;
+  excludedWindowIDs: number[];
+  excludedBundleIDs: string[];
+  allowsChangingSelectedContent: boolean;
+}
+
+export async function pickContentFilter(
+  args: Partial<SCContentSharingPickerConfiguration> = {}
+): Promise<SCContentFilter> {
+  return RAW_pickContentFilter(args);
 }
